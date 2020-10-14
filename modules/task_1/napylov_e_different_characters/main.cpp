@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     std::cout << str2 << std::endl;
     MPI_Init(NULL, NULL);
     int diff_count = getParallelDifferenceCount(str1, str2);
-    MPI_Finalize();
     std::cout << diff_count << std::endl;
+    MPI_Finalize();
     return 0;
 }
