@@ -4,12 +4,12 @@
 #include <vector>
 #include "./matrix_sum.h"
 
-TEST(Parallel_MPI, Test_Sum_100_100) {
+TEST(Parallel_MPI, Test_Sum_10_1) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     std::vector<int> globalMas;
-    const int N = 100;
-    const int M = 100;
+    const int N = 10;
+    const int M = 1;
     const int globalSize = N * M;
     if (rank == 0) {
         globalMas = randomVector(globalSize);
@@ -58,11 +58,11 @@ TEST(Parallel_MPI, Test_Sum_1_5000) {
     }
 }
 
-TEST(Parallel_MPI, Test_Sum_5000_1) {
+TEST(Parallel_MPI, Test_Sum_500_1) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     std::vector<int> globalMas;
-    const int N = 5000;
+    const int N = 500;
     const int M = 1;
     const int globalSize = N * M;
     if (rank == 0) {

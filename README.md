@@ -148,4 +148,4 @@ python2 scripts/lint.py
 
 And finally, 
 
-**All information of the course is in WIKI!!!**
+**All information of the course is in WIKI!!**

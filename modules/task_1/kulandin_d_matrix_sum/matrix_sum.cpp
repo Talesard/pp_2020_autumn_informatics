@@ -22,14 +22,15 @@ int64_t getParallelSum(const std::vector<int> &a, int n) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     const int delta = n / size;
+    const int rem = n % size;
     if (rank == 0) {
         for (int j = 1; j < size; ++j) {
-            MPI_Send(&a[0] + j * delta, delta, MPI_INT, j, 0, MPI_COMM_WORLD);
+            MPI_Send(&a[0] + rem + j * delta, delta, MPI_INT, j, 0, MPI_COMM_WORLD);
         }
     }
-    std::vector<int> local(delta, 0);
+    std::vector<int> local(rank == 0 ? rem + delta : delta, 0);
     if (rank == 0) {
-        local = std::vector<int>(a.begin(), a.begin() + delta);
+        local = std::vector<int>(a.begin(), a.begin() + delta + rem);
     } else {
         MPI_Status status;
         MPI_Recv(&local[0], delta, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
