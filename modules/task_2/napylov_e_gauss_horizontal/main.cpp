@@ -20,11 +20,20 @@ int main(int argc, char** argv) {
          2, 8, 4, 6, 5,     8
     };
     std::vector<double> res(5);
+    double t1, t2;
+    t1 = MPI_Wtime();
     res = SolveGaussParallel(sys_eq, 5, 6);
+    t2 = MPI_Wtime();
     if (rank == 0) {
         print_vec(res);
         bool check = CheckSolution(sys_eq, 5, 6, res, EPSILON * 100);
         std::cout << "CHECK: " << check << std::endl;
+        std::cout << "TIME_PARALLEL: " << t2 - t1 << std::endl;
+
+        t1 = MPI_Wtime();
+        res = SolveGaussSeq(sys_eq, 5, 6);
+        t2 = MPI_Wtime();
+        std::cout << "TIME_SEQ: " << t2 - t1 << std::endl;
     }
     // std::vector<double> res(5);
 

@@ -4,6 +4,8 @@
 #include <vector>
 #include <limits>
 #include <string>
+#include <random>
+#include <ctime>
 #include <mpi.h>
 #include "../../../modules/task_2/napylov_e_gauss_horizontal/gauss_horizontal.h"
 
@@ -33,6 +35,17 @@ void print_matrix(std::vector<double> vec, int rows, int cols) {
     a4 a5 a6 | b2   ->  a1 a2 a3 b1 a4 a5 a6 b2 a7 a8 a9 b3
     a7 a8 a9 | b3
 */
+
+std::vector<double> RandomSystem(int rows, int cols) {
+    srand(time(0));
+    std::vector<double> result(rows * cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result[i * cols + j] = ( ( double )rand() * ( 100 - 1 ) ) / ( double )RAND_MAX + 1;
+        }
+    }
+    return result;
+}
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
     // ------------------ DEBUG ------------------ //
@@ -83,18 +96,23 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
     for (int row = 0; row < rows; row++) {
         id_ans = 0;
         for (int col = 0; col < cols - 1; col++) {
+            // ------------------ DEBUG ------------------ //
             if (debug) std::cout << sys[row * cols + col] << " * " << answer[id_ans] << std::endl;
+            // ------------------ DEBUG ------------------ //
             tmp_sum += (sys[row * cols + col] * answer[id_ans]);
             id = row * cols + col;
             id_ans++;
         }
+        // ------------------ DEBUG ------------------ //
         if (debug) std::cout << "tmp_sum = " << tmp_sum - sys[id + 1] << std::endl;
+        // ------------------ DEBUG ------------------ //
         if ((tmp_sum - sys[id + 1] >= epsilon) || (tmp_sum - sys[id + 1] <= -epsilon)) {
-            if (debug) std::cout << "!!!" << std::endl;
             return false;
         }
         tmp_sum = 0.0;
+        // ------------------ DEBUG ------------------ //
         if (debug) std::cout << std::endl;
+        // ------------------ DEBUG ------------------ //
     }
     return true;
 }
@@ -158,15 +176,16 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     // Подумать, как можно распараллелить
     std::vector<double> result(rows);
     for (int i = rows - 1; i > -1; i--) { // цикл по процессам
-        result[i] = local_str[cols - 1]; // свободный член, из него будем вычитать все, что слева
-        for (int j = rows - 1; j > i; j--) {
-            result[i] -= local_str[j] * result[j];
+        if (rank == i) {
+            result[i] = local_str[cols - 1]; // свободный член, из него будем вычитать все, что слева
+            for (int j = rows - 1; j > i; j--) {
+                result[i] -= local_str[j] * result[j];
+            }
+            result[i] /= local_str[i];
+            // отправляем результат всем процессам. (а может нужно отправить только процессу #i-1 ???)
+            // и отправлять только существующие значения, а не весь вектор, где много 0
         }
-        result[i] /= local_str[i];
-        // отправляем результат всем процессам. (а может нужно отправить только процессу #i-1 ???)
-        // и отправлять только существующие значения, а не весь вектор, где много 0
         MPI_Bcast(result.data(), rows, MPI_DOUBLE, i, MPI_COMM_WORLD);
     }
-
     return result;
 }
