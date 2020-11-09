@@ -102,69 +102,102 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
     for (int row = 0; row < rows; row++) {
         id_ans = 0;
         for (int col = 0; col < cols - 1; col++) {
+            #ifdef DEBUG
+            // ------------------ DEBUG ------------------ //
+            std::cout << sys[row * cols + col] << " * " << answer[id_ans] << std::endl;
+            #endif
+            // ------------------ DEBUG ------------------ //
             tmp_sum += (sys[row * cols + col] * answer[id_ans]);
             id = row * cols + col;
             id_ans++;
         }
+        // ------------------ DEBUG ------------------ //
+        #ifdef DEBUG
+        std::cout << "tmp_sum = " << tmp_sum - sys[id + 1] << std::endl;
+        #endif
+        // ------------------ DEBUG ------------------ //
         if ((tmp_sum - sys[id + 1] >= epsilon) || (tmp_sum - sys[id + 1] <= -epsilon)) {
             return false;
         }
         tmp_sum = 0.0;
+        // ------------------ DEBUG ------------------ //
+        #ifdef DEBUG
+        std::cout << std::endl;
+        #endif
+        // ------------------ DEBUG ------------------ //
     }
     return true;
 }
 
-/*std::vector<double>*/ void SolveGaussParallel(std::vector<double> sys, int rows, int cols) {
-    // -------------------- Подготовка -------------------- //
-    //Создаем новый коммуникатор, который исключает лишние процессы (world_size > rows)
-    MPI_Group group_world;
-    MPI_Comm_group(MPI_COMM_WORLD, &group_world);
-    int size;
+std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int cols) {
+    // sys уже есть во всех процессах
+    int size, rank;
+    const int root = 0;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    int work_proc_size;
-    size > rows ? work_proc_size = rows : work_proc_size = size;
-    int *work_rank_array = new int[work_proc_size];
-    for (int i = 0; i < work_proc_size; i++) work_rank_array[i] = i;
-    MPI_Group group_work;
-    MPI_Comm COMM_WORK;
-    MPI_Group_incl(group_world, work_proc_size, work_rank_array, &group_work);
-    MPI_Comm_create(MPI_COMM_WORLD, group_work, &COMM_WORK);
-    // -------------------- Конец подготовки -------------------- //
+    // тут нужно будет создать новый комм если процессов > строк.   upd: решилось САМО Pog
+    // и подумать что делать если <
+    // ...
 
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    // Отправляем процессу i строку i
+    std::vector<double> local_str(cols);
+    MPI_Scatter(sys.data(), cols, MPI_DOUBLE, local_str.data(), cols, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (world_rank < work_proc_size) {
-        int rank;
-        const int root = 0;
-        MPI_Comm_rank(COMM_WORK, &rank);
-        MPI_Comm_size(COMM_WORK, &work_proc_size);
-        const unsigned int rows_in_process = rows / size;
-        const unsigned int rows_rem = rows % size;
-
-        // раскладываем поровну + остатки "вторым проходом"
-        const unsigned int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
-
-        std::vector<double> local_vec(local_vec_size);
-
-        if (rank == 0) {
-            for (int proc = 1; proc < work_proc_size; proc++) {
-                int tmp_size = (rows_in_process + (proc < rows_rem ? 1 : 0)) * cols;
-                MPI_Send(sys.data() + proc * tmp_size, tmp_size, MPI_DOUBLE, proc, 0, COMM_WORK);
-            }
-            local_vec = std::vector<double>(sys.begin(), sys.begin() + local_vec_size);
-        } else {
-            MPI_Status status;
-            MPI_Recv(local_vec.data(), local_vec_size, MPI_DOUBLE, 0, 0, COMM_WORK, &status);
+    // прямой ход
+    std::vector<double> stroka(cols);
+    for (int i = 0; i < rows - 1; i++) {
+        if (rank == i) {
+            stroka = local_str;
         }
-        // ждем, пока данные появятся во всех процессах
-        // пока не понятно насколько это необходимо
-        MPI_Barrier(COMM_WORK);
+        // процесс i передает свою строку i всем
+        MPI_Bcast(stroka.data(), cols, MPI_DOUBLE, i, MPI_COMM_WORLD);
 
-        // ТЕПЕРЬ ДАННЫЕ РАСПРЕДЕЛЕНЫ
+        // ------------------ DEBUG ------------------ //
+        #ifdef DEBUG
+        MPI_Barrier(MPI_COMM_WORLD); 
+        std::cout << "i=" << i << " r="<< rank << ": ";
+        print_vec(stroka);
+        std::cout << "--------" << std::endl;
+        MPI_Barrier(MPI_COMM_WORLD);
+        #endif
+        // ------------------ DEBUG ------------------ //
 
-        std::cout << rank << ": ";
-        print_vec(local_vec);
+        // процессы i+1...rows исключают из совей строки Xi
+        if (rank >= i+1 && rank <= rows) {
+            // тут исключение Xi из local_str используя принятую из bcast stroka 
+            double coeff = stroka[i] / local_str[i];
+            // local_str*coeff - stroka
+            for (int k = 0; k < cols; k++) {
+                local_str[k] = local_str[k] * coeff - stroka[k];
+            }
+            // ------------------ DEBUG ------------------ //
+            #ifdef DEBUG
+            print_vec(local_str);
+            std::cout << "-------" << std::endl;
+            #endif
+            // ------------------ DEBUG ------------------ //
+        }
+    } // кажется, это реально работает... Pog?
+    // конец прямого хода
+    // Теперь local_str всех процессов образуют верхне-треугольную матрицу
+
+
+
+    // обратный ход - вычисление неизвестных
+    // Это работает последовательно KEKWait. 
+    // Подумать, как можно распараллелить
+    std::vector<double> result(rows);
+    for (int i = rows - 1; i > -1; i--) { // цикл по процессам
+        if (rank == i) {
+            result[i] = local_str[cols - 1]; // свободный член, из него будем вычитать все, что слева
+            for (int j = rows - 1; j > i; j--) {
+                result[i] -= local_str[j] * result[j];
+            }
+            result[i] /= local_str[i];
+            // отправляем результат всем процессам. (а может нужно отправить только процессу #i-1 ???)
+            // и отправлять только существующие значения, а не весь вектор, где много 0
+        }
+        MPI_Bcast(result.data(), rows, MPI_DOUBLE, i, MPI_COMM_WORLD);
     }
+    return result;
 }
