@@ -9,12 +9,19 @@
 #include <mpi.h>
 #include "../../../modules/task_2/napylov_e_gauss_horizontal/gauss_horizontal.h"
 
-//#define DEBUG
+#define DEBUG
 
 const double EPSILON = std::numeric_limits<double>::epsilon();
 
 // ------------------ DEBUG ------------------ //
 void print_vec(std::vector<double> vec) {
+    for (auto val : vec) {
+        std::cout << val << ' ';
+    }
+    std::cout << std::endl;
+}
+
+void print_vec(std::vector<int> vec) {
     for (auto val : vec) {
         std::cout << val << ' ';
     }
@@ -131,10 +138,12 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
     MPI_Comm_create(MPI_COMM_WORLD, group_work, &COMM_WORK);
     // -------------------- Конец подготовки -------------------- //
 
+
+
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD); // а нужно ли это?
     if (world_rank < work_proc_size) {
         int rank;
         const int root = 0;
@@ -148,23 +157,54 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
 
         std::vector<double> local_vec(local_vec_size);
 
+        // здесь хранится инфа в каком процессе каждая строка: map[row]=proc
+        std::vector<int> map(rows);
+
+
         if (rank == 0) {
+            local_vec = std::vector<double>(sys.begin(), sys.begin() + local_vec_size);
+            int offset = local_vec_size;
+            for (int i = 0; i < local_vec_size / cols; i++) {
+                map[i] = 0;
+            }
             for (int proc = 1; proc < work_proc_size; proc++) {
                 int tmp_size = (rows_in_process + (proc < rows_rem ? 1 : 0)) * cols;
-                MPI_Send(sys.data() + proc * tmp_size, tmp_size, MPI_DOUBLE, proc, 0, COMM_WORK);
+                MPI_Send(sys.data() + offset, tmp_size, MPI_DOUBLE, proc, 0, COMM_WORK);
+                for (int i = offset / cols; i < offset / cols + tmp_size / cols; i++) {
+                    map[i] = proc;
+                }
+                offset += tmp_size;
             }
-            local_vec = std::vector<double>(sys.begin(), sys.begin() + local_vec_size);
         } else {
             MPI_Status status;
             MPI_Recv(local_vec.data(), local_vec_size, MPI_DOUBLE, 0, 0, COMM_WORK, &status);
         }
+        MPI_Bcast(map.data(), rows, MPI_INT, 0, COMM_WORK);
         // ждем, пока данные появятся во всех процессах
         // пока не понятно насколько это необходимо
         MPI_Barrier(COMM_WORK);
 
-        // ТЕПЕРЬ ДАННЫЕ РАСПРЕДЕЛЕНЫ
 
-        std::cout << rank << ": ";
-        print_vec(local_vec);
+        std::cout << rank << ": "; print_vec(local_vec);
+
+        int local_rows_count = local_vec_size / cols;
+        /*
+            
+            local_vec - локальный вектор, содержащий все строки процесса
+            local_vec_size - его размер
+            local_rows_count - число строк в процессе
+            map - в каком процессе строка row: map[row] = proc
+        */
+        int local_id = 0;
+        std::vector<double> stroka(cols);
+        for (int r = 0; r < rows -1; r++) {
+            int proc = map[r];
+            if (rank == proc) {
+                stroka = std::vector<double>(local_vec.data() + local_id * cols, local_vec.data() + local_id * cols + cols);
+                local_id++;
+            }
+            MPI_Bcast(stroka.data(), cols, MPI_DOUBLE, proc, COMM_WORK);
+            std::cout << "iter: " << r << ", rank: " << rank << ", stroka: "; print_vec(stroka); 
+       }
     }
 }
