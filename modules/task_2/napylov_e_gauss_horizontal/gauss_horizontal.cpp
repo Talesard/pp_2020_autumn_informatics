@@ -1,15 +1,14 @@
 // Copyright 2020 Napylov Evgenii
-
+#include "../../../modules/task_2/napylov_e_gauss_horizontal/gauss_horizontal.h"
+#include <mpi.h>
 #include <iostream>
 #include <vector>
 #include <limits>
 #include <string>
 #include <random>
 #include <ctime>
-#include <mpi.h>
-#include "../../../modules/task_2/napylov_e_gauss_horizontal/gauss_horizontal.h"
 
-#define DEBUG
+// #define DEBUG
 
 const double EPSILON = std::numeric_limits<double>::epsilon();
 
@@ -44,17 +43,6 @@ void print_matrix(std::vector<double> vec, int rows, int cols) {
     a4 a5 a6 | b2   ->  a1 a2 a3 b1 a4 a5 a6 b2 a7 a8 a9 b3
     a7 a8 a9 | b3
 */
-
-std::vector<double> RandomSystem(int rows, int cols) {
-    srand(time(0));
-    std::vector<double> result(rows * cols);
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            result[i * cols + j] = ( ( double )rand() * ( 100 - 1 ) ) / ( double )RAND_MAX + 1;
-        }
-    }
-    return result;
-}
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
     // ------------------ DEBUG ------------------ //
@@ -143,7 +131,7 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     std::vector<double> result(rows);
-    
+
     if (world_rank < work_proc_size) {
         int rank;
         const int root = 0;
@@ -153,7 +141,7 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         const unsigned int rows_rem = rows % size;
         // раскладываем поровну + 1 из остатка
         const unsigned int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
-        std::vector<double> local_vec(local_vec_size); 
+        std::vector<double> local_vec(local_vec_size);
         std::vector<int> map(rows);  // map[row]=proc, в котором лежит row
 
         if (rank == 0) {
@@ -189,7 +177,8 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         for (int r = 0; r < rows - 1; r++) {
             int proc = map[r];
             if (rank == proc) {
-                stroka = std::vector<double>(local_vec.data() + local_id * cols, local_vec.data() + local_id * cols + cols);
+                stroka = std::vector<double>(local_vec.data() + local_id * cols,
+                                            local_vec.data() + local_id * cols + cols);
                 local_id++;
             }
             MPI_Bcast(stroka.data(), cols, MPI_DOUBLE, proc, COMM_WORK);
@@ -214,7 +203,9 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 }
             }
         }
+        #ifdef DEBUG
         std::cout << "rank: " << rank << ", vec: "; print_vec(local_vec);
+        #endif
 
         // ТЕПЕРЬ ВСЕ СТРОКИ ВСЕХ ПРОЦЕССОВ СОСТАВЛЯЮТ ВЕРХНЕ-ТРЕУГОЛЬНУЮ МАТРИЦУ
 
@@ -233,7 +224,7 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 // находим неизв. (избавляемся от коэфф.)
                 result[curr_row] /= sys[curr_row * cols + curr_row];
             }
-            //std::cout << "res: "; print_vec(result);
+            // std::cout << "res: "; print_vec(result);
         }
     }
 

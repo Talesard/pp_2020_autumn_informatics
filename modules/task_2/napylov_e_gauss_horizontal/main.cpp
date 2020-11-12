@@ -1,8 +1,8 @@
 // Copyright 2020 Napylov Evgenii
+#include <mpi.h>
 #include <iostream>
 #include <limits>
 #include <vector>
-#include <mpi.h>
 #include "./gauss_horizontal.h"
 
 const double EPSILON = std::numeric_limits<double>::epsilon();
