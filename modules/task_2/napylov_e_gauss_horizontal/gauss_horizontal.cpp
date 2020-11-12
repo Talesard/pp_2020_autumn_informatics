@@ -121,7 +121,7 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
     return true;
 }
 
-/*std::vector<double>*/ void SolveGaussParallel(std::vector<double> sys, int rows, int cols) {
+std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int cols) {
     // -------------------- Подготовка -------------------- //
     //Создаем новый коммуникатор, который исключает лишние процессы (world_size > rows)
     MPI_Group group_world;
@@ -142,7 +142,8 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
 
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
+    std::vector<double> result(rows);
+    
     MPI_Barrier(MPI_COMM_WORLD); // а нужно ли это?
     if (world_rank < work_proc_size) {
         int rank;
@@ -200,6 +201,7 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
 
             // прямой ход - исключение
             if (rank == proc) {
+                // local_id не уведичиваем на 1, т.к. это сделано выше
                 for (int l_r = local_id; l_r < local_rows_count; l_r++) {
                     double coeff = stroka[r] / local_vec[l_r * cols + r];
                     for (int el_id = 0; el_id < cols; el_id++) {
@@ -218,6 +220,30 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
             }
         }
         std::cout << "rank: " << rank << ", vec: "; print_vec(local_vec);
-        local_id = 0;
+
+
+        // ТЕПЕРЬ ВСЕ СТРОКИ ВСЕХ ПРОЦЕССОВ СОСТАВЛЯЮТ ВЕРХНЕ-ТРЕУГОЛЬНУЮ МАТРИЦУ
+
+        // обратный ход - исключение
+        // т.к. вычисление обратным ходом в любом случает последовательное, пусть этим занимается нулевой прцесс
+        local_id = local_rows_count - 1;
+        MPI_Gather(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(), local_vec_size, MPI_DOUBLE, 0, COMM_WORK);
+        if (rank == 0) {
+            for (int curr_row = rows - 1; curr_row > -1; curr_row--) {
+                // это правая часть системы
+                result[curr_row] = sys[curr_row * cols + cols - 1];
+                // вычитаем из правой части уже найденные * на их коэфф.
+                for (int prev_row = rows - 1; prev_row > curr_row; prev_row--) {
+                    result[curr_row] -= sys[curr_row * cols + prev_row] * result[prev_row];
+                }
+                // находим неизв. (избавляемся от коэфф.)
+                result[curr_row] /= sys[curr_row * cols + curr_row];
+            }
+            //std::cout << "res: "; print_vec(result);
+        }
     }
+
+    // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе
+    MPI_Bcast(result.data(), rows, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    return result;
 }
