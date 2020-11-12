@@ -151,15 +151,10 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
         MPI_Comm_size(COMM_WORK, &work_proc_size);
         const unsigned int rows_in_process = rows / size;
         const unsigned int rows_rem = rows % size;
-
-        // раскладываем поровну + остатки "вторым проходом"
+        // раскладываем поровну + 1 из остатка
         const unsigned int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
-
-        std::vector<double> local_vec(local_vec_size);
-
-        // здесь хранится инфа в каком процессе каждая строка: map[row]=proc
-        std::vector<int> map(rows);
-
+        std::vector<double> local_vec(local_vec_size); 
+        std::vector<int> map(rows);  // map[row]=proc, в котором лежит row
 
         if (rank == 0) {
             local_vec = std::vector<double>(sys.begin(), sys.begin() + local_vec_size);
@@ -180,31 +175,49 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
             MPI_Recv(local_vec.data(), local_vec_size, MPI_DOUBLE, 0, 0, COMM_WORK, &status);
         }
         MPI_Bcast(map.data(), rows, MPI_INT, 0, COMM_WORK);
-        // ждем, пока данные появятся во всех процессах
-        // пока не понятно насколько это необходимо
-        MPI_Barrier(COMM_WORK);
 
 
-        std::cout << rank << ": "; print_vec(local_vec);
+
+        //std::cout << rank << ": "; print_vec(local_vec);
 
         int local_rows_count = local_vec_size / cols;
         /*
-            
             local_vec - локальный вектор, содержащий все строки процесса
             local_vec_size - его размер
             local_rows_count - число строк в процессе
             map - в каком процессе строка row: map[row] = proc
         */
         int local_id = 0;
+        //рабочая строка, с помощью которой процессы будут исключать
         std::vector<double> stroka(cols);
-        for (int r = 0; r < rows -1; r++) {
+        for (int r = 0; r < rows - 1; r++) {
             int proc = map[r];
             if (rank == proc) {
                 stroka = std::vector<double>(local_vec.data() + local_id * cols, local_vec.data() + local_id * cols + cols);
                 local_id++;
             }
             MPI_Bcast(stroka.data(), cols, MPI_DOUBLE, proc, COMM_WORK);
-            std::cout << "iter: " << r << ", rank: " << rank << ", stroka: "; print_vec(stroka); 
-       }
+
+            // прямой ход - исключение
+            if (rank == proc) {
+                for (int l_r = local_id; l_r < local_rows_count; l_r++) {
+                    double coeff = stroka[r] / local_vec[l_r * cols + r];
+                    for (int el_id = 0; el_id < cols; el_id++) {
+                        local_vec[l_r * cols + el_id] = local_vec[l_r * cols + el_id] * coeff - stroka[el_id];
+                    }
+                }
+            } else {
+                if (rank > proc) {
+                    for (int l_r = 0; l_r < local_rows_count; l_r++) {
+                        double coeff = stroka[r] / local_vec[l_r * cols + r];
+                        for (int el_id = 0; el_id < cols; el_id++) {
+                            local_vec[l_r * cols + el_id] = local_vec[l_r * cols + el_id] * coeff - stroka[el_id];
+                        }
+                    }
+                }
+            }
+        }
+        std::cout << "rank: " << rank << ", vec: "; print_vec(local_vec);
+        local_id = 0;
     }
 }
