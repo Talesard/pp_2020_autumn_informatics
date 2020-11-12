@@ -21,7 +21,10 @@ int main(int argc, char** argv) {
     };
     std::vector<double> res(5);
     res = SolveGaussParallel(sys_eq, 5, 6);
-    std::cout << "res: "; print_vec(res);
+    if (rank == 0) {
+        std::cout << "res: "; print_vec(res);
+        std::cout << "check: " << CheckSolution(sys_eq, 5, 6, res, EPSILON * 100);
+    }
     MPI_Finalize();
     return 0;
 }

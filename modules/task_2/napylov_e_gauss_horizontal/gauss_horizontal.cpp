@@ -65,13 +65,13 @@ std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
     std::vector<double> result(rows);
     // прямой ход - исключение
     double exc_coeff = 0.0;
-    for (auto curr_row = 0; curr_row < rows; curr_row++) {
+    for (int curr_row = 0; curr_row < rows; curr_row++) {
         // на каждой интерации из нижних строк исключается переменная
-        for (auto next_row = 1 + curr_row; next_row < rows; next_row++) {
+        for (int next_row = 1 + curr_row; next_row < rows; next_row++) {
             // расчитываем коэффициент, который исключит следующую переменную
             exc_coeff = sys[curr_row + cols * curr_row] / sys[curr_row + cols * next_row];
             // вычитаем из следующей строки * коэфф. текущую строку
-            for (auto v_id = 0; v_id < cols; v_id++) {
+            for (int v_id = 0; v_id < cols; v_id++) {
                 sys[v_id + cols * next_row] = exc_coeff * sys[v_id + cols * next_row] - sys[v_id + cols * curr_row];
             }
             // ------------------ DEBUG ------------------ //
@@ -89,11 +89,11 @@ std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
 
     // обратный ход - вычисление
     // проходим снизу вверх и вычисляем неизвестные, подставляя уже найденные
-    for (auto curr_row = rows - 1; curr_row > -1; curr_row--) {
+    for (int curr_row = rows - 1; curr_row > -1; curr_row--) {
         // это правая часть системы
         result[curr_row] = sys[curr_row * cols + cols - 1];
         // вычитаем из правой части уже найденные * на их коэфф.
-        for (auto prev_row = rows - 1; prev_row > curr_row; prev_row--) {
+        for (int prev_row = rows - 1; prev_row > curr_row; prev_row--) {
             result[curr_row] -= sys[curr_row * cols + prev_row] * result[prev_row];
         }
         // находим неизв. (избавляемся от коэфф.)
@@ -144,7 +144,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     std::vector<double> result(rows);
     
-    MPI_Barrier(MPI_COMM_WORLD); // а нужно ли это?
     if (world_rank < work_proc_size) {
         int rank;
         const int root = 0;
@@ -176,10 +175,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
             MPI_Recv(local_vec.data(), local_vec_size, MPI_DOUBLE, 0, 0, COMM_WORK, &status);
         }
         MPI_Bcast(map.data(), rows, MPI_INT, 0, COMM_WORK);
-
-
-
-        //std::cout << rank << ": "; print_vec(local_vec);
 
         int local_rows_count = local_vec_size / cols;
         /*
@@ -220,7 +215,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
             }
         }
         std::cout << "rank: " << rank << ", vec: "; print_vec(local_vec);
-
 
         // ТЕПЕРЬ ВСЕ СТРОКИ ВСЕХ ПРОЦЕССОВ СОСТАВЛЯЮТ ВЕРХНЕ-ТРЕУГОЛЬНУЮ МАТРИЦУ
 
