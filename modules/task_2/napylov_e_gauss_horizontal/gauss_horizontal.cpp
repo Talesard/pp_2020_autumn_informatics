@@ -3,16 +3,11 @@
 #include <mpi.h>
 #include <iostream>
 #include <vector>
-#include <limits>
-#include <string>
-#include <random>
-#include <ctime>
 
-// #define DEBUG
+// #define DEBUG_PAR
+// #define DEBUG_SEQ
 
-const double EPSILON = std::numeric_limits<double>::epsilon();
 
-// ------------------ DEBUG ------------------ //
 void print_vec(std::vector<double> vec) {
     for (auto val : vec) {
         std::cout << val << ' ';
@@ -36,17 +31,16 @@ void print_matrix(std::vector<double> vec, int rows, int cols) {
     }
     std::cout << std::endl;
 }
-// ------------------ DEBUG ------------------ //
 
 /*
-    a1 a2 a3 | b1           
+    a1 a2 a3 | b1
     a4 a5 a6 | b2   ->  a1 a2 a3 b1 a4 a5 a6 b2 a7 a8 a9 b3
     a7 a8 a9 | b3
 */
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
     // ------------------ DEBUG ------------------ //
-    #ifdef DEBUG
+    #ifdef DEBUG_SEQ
     print_matrix(sys, rows, cols);
     #endif
     // ------------------ DEBUG ------------------ //
@@ -63,14 +57,14 @@ std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
                 sys[v_id + cols * next_row] = exc_coeff * sys[v_id + cols * next_row] - sys[v_id + cols * curr_row];
             }
             // ------------------ DEBUG ------------------ //
-            #ifdef DEBUG
+            #ifdef DEBUG_SEQ
             print_matrix(sys, rows, cols);
             #endif
             // ------------------ DEBUG ------------------ //
         }
     }
     // ------------------ DEBUG ------------------ //
-    #ifdef DEBUG
+    #ifdef DEBUG_SEQ
     print_matrix(sys, rows, cols);
     #endif
     // ------------------ DEBUG ------------------ //
@@ -127,14 +121,12 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     // -------------------- Конец подготовки -------------------- //
 
 
-
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     std::vector<double> result(rows);
 
     if (world_rank < work_proc_size) {
         int rank;
-        const int root = 0;
         MPI_Comm_rank(COMM_WORK, &rank);
         MPI_Comm_size(COMM_WORK, &work_proc_size);
         const unsigned int rows_in_process = rows / size;
@@ -143,21 +135,34 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         const unsigned int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
         std::vector<double> local_vec(local_vec_size);
         std::vector<int> map(rows);  // map[row]=proc, в котором лежит row
+        std::vector<int> size_vec;  // размеры для gatherv
+        int *displ;  // смещения для gatherv
 
         if (rank == 0) {
+            displ = new int[size];
+            displ[0] = 0;
+            size_vec.resize(size);
             local_vec = std::vector<double>(sys.begin(), sys.begin() + local_vec_size);
             int offset = local_vec_size;
             for (int i = 0; i < local_vec_size / cols; i++) {
                 map[i] = 0;
             }
+            size_vec[0] = local_vec_size;
             for (int proc = 1; proc < work_proc_size; proc++) {
                 int tmp_size = (rows_in_process + (proc < rows_rem ? 1 : 0)) * cols;
+                size_vec[proc] = tmp_size;
+                displ[proc] = tmp_size;
                 MPI_Send(sys.data() + offset, tmp_size, MPI_DOUBLE, proc, 0, COMM_WORK);
                 for (int i = offset / cols; i < offset / cols + tmp_size / cols; i++) {
                     map[i] = proc;
                 }
                 offset += tmp_size;
             }
+            for (int i = 1; i < size; i++) displ[i] = displ[i-1] + size_vec[i-1];
+
+            #ifdef DEBUG_PAR
+            std::cout << "map: "; print_vec(map);
+            #endif
         } else {
             MPI_Status status;
             MPI_Recv(local_vec.data(), local_vec_size, MPI_DOUBLE, 0, 0, COMM_WORK, &status);
@@ -172,7 +177,7 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
             map - в каком процессе строка row: map[row] = proc
         */
         int local_id = 0;
-        //рабочая строка, с помощью которой процессы будут исключать
+        // рабочая строка, с помощью которой процессы будут исключать
         std::vector<double> stroka(cols);
         for (int r = 0; r < rows - 1; r++) {
             int proc = map[r];
@@ -203,17 +208,19 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 }
             }
         }
-        #ifdef DEBUG
-        std::cout << "rank: " << rank << ", vec: "; print_vec(local_vec);
+        #ifdef DEBUG_PAR
+        std::cout << "rank: " << rank << ", size: " << local_vec_size << ", vec: "; print_vec(local_vec);
         #endif
 
         // ТЕПЕРЬ ВСЕ СТРОКИ ВСЕХ ПРОЦЕССОВ СОСТАВЛЯЮТ ВЕРХНЕ-ТРЕУГОЛЬНУЮ МАТРИЦУ
 
         // обратный ход - исключение
-        // т.к. вычисление обратным ходом в любом случает последовательное, пусть этим занимается нулевой прцесс
-        local_id = local_rows_count - 1;
-        MPI_Gather(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(), local_vec_size, MPI_DOUBLE, 0, COMM_WORK);
+        // т.к. вычисление обратным ходом в любом случае последовательное, пусть этим занимается нулевой прцесс
+        MPI_Gatherv(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(), size_vec.data(), displ, MPI_DOUBLE, 0, COMM_WORK);
         if (rank == 0) {
+            #ifdef DEBUG_PAR
+            print_matrix(sys, rows, cols);
+            #endif
             for (int curr_row = rows - 1; curr_row > -1; curr_row--) {
                 // это правая часть системы
                 result[curr_row] = sys[curr_row * cols + cols - 1];
@@ -224,7 +231,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 // находим неизв. (избавляемся от коэфф.)
                 result[curr_row] /= sys[curr_row * cols + curr_row];
             }
-            // std::cout << "res: "; print_vec(result);
         }
     }
 
