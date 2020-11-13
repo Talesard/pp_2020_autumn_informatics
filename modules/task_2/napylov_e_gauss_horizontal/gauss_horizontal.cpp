@@ -216,7 +216,8 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
 
         // обратный ход - исключение
         // т.к. вычисление обратным ходом в любом случае последовательное, пусть этим занимается нулевой прцесс
-        MPI_Gatherv(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(), size_vec.data(), displ, MPI_DOUBLE, 0, COMM_WORK);
+        MPI_Gatherv(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(),
+                    size_vec.data(), displ, MPI_DOUBLE, 0, COMM_WORK);
         if (rank == 0) {
             #ifdef DEBUG_PAR
             print_matrix(sys, rows, cols);
@@ -235,6 +236,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     }
 
     // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе
-    MPI_Bcast(result.data(), rows, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // MPI_Bcast(result.data(), rows, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     return result;
 }
