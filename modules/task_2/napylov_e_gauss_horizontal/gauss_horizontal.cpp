@@ -129,10 +129,10 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         int rank;
         MPI_Comm_rank(COMM_WORK, &rank);
         MPI_Comm_size(COMM_WORK, &work_proc_size);
-        const unsigned int rows_in_process = rows / size;
-        const unsigned int rows_rem = rows % size;
+        const int rows_in_process = rows / size;
+        const int rows_rem = rows % size;
         // раскладываем поровну + 1 из остатка
-        const unsigned int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
+        const int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
         std::vector<double> local_vec(local_vec_size);
         std::vector<int> map(rows);  // map[row]=proc, в котором лежит row
         std::vector<int> size_vec;  // размеры для gatherv
