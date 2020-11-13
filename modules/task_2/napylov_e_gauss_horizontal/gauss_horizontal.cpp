@@ -6,6 +6,7 @@
 
 // #define DEBUG_PAR
 // #define DEBUG_SEQ
+// #define CLEAR_TIME
 
 
 void print_vec(std::vector<double> vec) {
@@ -37,6 +38,16 @@ void print_matrix(std::vector<double> vec, int rows, int cols) {
     a4 a5 a6 | b2   ->  a1 a2 a3 b1 a4 a5 a6 b2 a7 a8 a9 b3
     a7 a8 a9 | b3
 */
+
+std::vector<double> SystemForPerformanceTest(int rows, int cols) {
+    std::vector<double> res(rows * cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            res[i * cols + j] = 5;
+        }
+    }
+    return res;
+}
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
     // ------------------ DEBUG ------------------ //
@@ -120,7 +131,8 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     MPI_Comm_create(MPI_COMM_WORLD, group_work, &COMM_WORK);
     // -------------------- Конец подготовки -------------------- //
 
-
+    double T0, T1;
+    T0 = MPI_Wtime();
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     std::vector<double> result(rows);
@@ -233,6 +245,12 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 result[curr_row] /= sys[curr_row * cols + curr_row];
             }
         }
+        T1 = MPI_Wtime();
+        #ifdef CLEAR_TIME
+        if (rank == 0) {
+            std::cout << "par_computation_only_time: " << T1 - T0 <<std::endl;
+        }
+        #endif
     }
 
     // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе

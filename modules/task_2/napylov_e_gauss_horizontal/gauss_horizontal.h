@@ -9,6 +9,8 @@ void print_vec(std::vector<int> vec);
 
 void print_matrix(std::vector<double> vec, int rows, int cols);
 
+std::vector<double> SystemForPerformanceTest(int rowsm, int cols);
+
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols);
 
 bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<double> answer, double epsilon);
