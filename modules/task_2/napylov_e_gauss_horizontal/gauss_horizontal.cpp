@@ -131,8 +131,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
     MPI_Comm_create(MPI_COMM_WORLD, group_work, &COMM_WORK);
     // -------------------- Конец подготовки -------------------- //
 
-    double T0, T1;
-    T0 = MPI_Wtime();
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     std::vector<double> result(rows);
@@ -245,12 +243,6 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 result[curr_row] /= sys[curr_row * cols + curr_row];
             }
         }
-        T1 = MPI_Wtime();
-        #ifdef CLEAR_TIME
-        if (rank == 0) {
-            std::cout << "par_computation_only_time: " << T1 - T0 <<std::endl;
-        }
-        #endif
     }
 
     // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе
