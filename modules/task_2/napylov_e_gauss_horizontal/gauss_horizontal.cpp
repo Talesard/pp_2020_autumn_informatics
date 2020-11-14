@@ -6,7 +6,6 @@
 
 // #define DEBUG_PAR
 // #define DEBUG_SEQ
-// #define CLEAR_TIME
 
 
 void print_vec(std::vector<double> vec) {
@@ -50,47 +49,41 @@ std::vector<double> SystemForPerformanceTest(int rows, int cols) {
 }
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
-    // ------------------ DEBUG ------------------ //
     #ifdef DEBUG_SEQ
     print_matrix(sys, rows, cols);
     #endif
-    // ------------------ DEBUG ------------------ //
     std::vector<double> result(rows);
     // прямой ход - исключение
     double exc_coeff = 0.0;
-    for (int curr_row = 0; curr_row < rows; curr_row++) {
+    for (int curr_r = 0; curr_r < rows; curr_r++) {
         // на каждой интерации из нижних строк исключается переменная
-        for (int next_row = 1 + curr_row; next_row < rows; next_row++) {
+        for (int next_r = 1 + curr_r; next_r < rows; next_r++) {
             // расчитываем коэффициент, который исключит следующую переменную
-            exc_coeff = sys[curr_row + cols * curr_row] / sys[curr_row + cols * next_row];
+            exc_coeff = sys[curr_r + cols * curr_r] / sys[curr_r + cols * next_r];
             // вычитаем из следующей строки * коэфф. текущую строку
             for (int v_id = 0; v_id < cols; v_id++) {
-                sys[v_id + cols * next_row] = exc_coeff * sys[v_id + cols * next_row] - sys[v_id + cols * curr_row];
+                sys[v_id + cols * next_r] = exc_coeff * sys[v_id + cols * next_r] - sys[v_id + cols * curr_r];
             }
-            // ------------------ DEBUG ------------------ //
             #ifdef DEBUG_SEQ
             print_matrix(sys, rows, cols);
             #endif
-            // ------------------ DEBUG ------------------ //
         }
     }
-    // ------------------ DEBUG ------------------ //
     #ifdef DEBUG_SEQ
     print_matrix(sys, rows, cols);
     #endif
-    // ------------------ DEBUG ------------------ //
 
     // обратный ход - вычисление
     // проходим снизу вверх и вычисляем неизвестные, подставляя уже найденные
-    for (int curr_row = rows - 1; curr_row > -1; curr_row--) {
-        // это правая часть системы
-        result[curr_row] = sys[curr_row * cols + cols - 1];
-        // вычитаем из правой части уже найденные * на их коэфф.
-        for (int prev_row = rows - 1; prev_row > curr_row; prev_row--) {
-            result[curr_row] -= sys[curr_row * cols + prev_row] * result[prev_row];
+    for (int curr_r = rows - 1; curr_r > -1; curr_r--) {
+        // вычитаем уже найденные * на их коэфф.
+        for (int prev_r = rows - 1; prev_r > curr_r; prev_r--) {
+            result[curr_r] -= sys[curr_r * cols + prev_r] * result[prev_r];
         }
+        // + свободный член
+        result[curr_r] += sys[curr_r * cols + cols - 1];
         // находим неизв. (избавляемся от коэфф.)
-        result[curr_row] /= sys[curr_row * cols + curr_row];
+        result[curr_r] /= sys[curr_r * cols + curr_r];
     }
     return result;
 }
@@ -142,7 +135,12 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         const int rows_in_process = rows / size;
         const int rows_rem = rows % size;
         // раскладываем поровну + 1 из остатка
-        const int local_vec_size = (rows_in_process + (rank < rows_rem ? 1 : 0)) * cols;
+        int local_vec_size;
+        if (rank < rows_rem) {
+            local_vec_size = (rows_in_process + 1) * cols;
+        } else {
+            local_vec_size = rows_in_process * cols;
+        }
         std::vector<double> local_vec(local_vec_size);
         std::vector<int> map(rows);  // map[row]=proc, в котором лежит row
         std::vector<int> size_vec;  // размеры для gatherv
@@ -159,7 +157,12 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
             }
             size_vec[0] = local_vec_size;
             for (int proc = 1; proc < work_proc_size; proc++) {
-                int tmp_size = (rows_in_process + (proc < rows_rem ? 1 : 0)) * cols;
+                int tmp_size;
+                if (proc < rows_rem) {
+                    tmp_size = (rows_in_process + 1) * cols;
+                } else {
+                    tmp_size = rows_in_process * cols;
+                }
                 size_vec[proc] = tmp_size;
                 displ[proc] = tmp_size;
                 MPI_Send(sys.data() + offset, tmp_size, MPI_DOUBLE, proc, 0, COMM_WORK);
@@ -232,15 +235,13 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
             #ifdef DEBUG_PAR
             print_matrix(sys, rows, cols);
             #endif
-            for (int curr_row = rows - 1; curr_row > -1; curr_row--) {
-                // это правая часть системы
-                result[curr_row] = sys[curr_row * cols + cols - 1];
-                // вычитаем из правой части уже найденные * на их коэфф.
-                for (int prev_row = rows - 1; prev_row > curr_row; prev_row--) {
-                    result[curr_row] -= sys[curr_row * cols + prev_row] * result[prev_row];
+            for (int curr_r = rows - 1; curr_r > -1; curr_r--) {
+                result[curr_r] = 0.0;
+                for (int prev_r = rows - 1; prev_r > curr_r; prev_r--) {
+                    result[curr_r] -= sys[curr_r * cols + prev_r] * result[prev_r];
                 }
-                // находим неизв. (избавляемся от коэфф.)
-                result[curr_row] /= sys[curr_row * cols + curr_row];
+                result[curr_r] += sys[curr_r * cols + cols - 1];
+                result[curr_r] /= sys[curr_r * cols + curr_r];
             }
         }
     }
