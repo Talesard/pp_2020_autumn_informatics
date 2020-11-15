@@ -14,6 +14,7 @@ std::vector<int> createRandomVector(int vec_size) {
 }
 
 int calculateAdjAlternationsSequential(const std::vector<int> &vec, int inc, int start_index) {
+    if (vec.empty()) return 0;
     int count = 0;
     int size = static_cast<int>(vec.size());
     for (int i = start_index; i < size; i = i + inc)
@@ -39,7 +40,7 @@ int calculateAdjAlternationsParallel(const std::vector<int> &vec, int vec_size) 
         part_vec = std::vector<int>(vec.begin(), vec.begin() + part_vec_size + tail);
     } else {
         MPI_Status status;
-        MPI_Recv(&part_vec[0], part_vec_size, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+            MPI_Recv(part_vec.data(), part_vec_size, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
     }
     int part_count = calculateAdjAlternationsSequential(part_vec, 1, 1);
     MPI_Reduce(&part_count, &full_count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);

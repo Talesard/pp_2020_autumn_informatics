@@ -14,7 +14,7 @@ TEST(Parallel_Operations_MPI, INTEGRAL_FROM_0_TO_1) {
     double parallel_result = integralParallel(static_cast<double(*)(double)>(&cos), 0, 1, 10000);
     if (rank == 0) {
         double sequential_result = integralSeqential(static_cast<double(*)(double)>(&cos), 0, 1, 10000);
-        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 100);
+        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 1000);
     }
 }
 
@@ -25,7 +25,7 @@ TEST(Parallel_Operations_MPI, INTEGRAL_FROM_5_TO_0) {
     double parallel_result = integralParallel(static_cast<double(*)(double)>(&cos), 5, 0, 10000);
     if (rank == 0) {
         double sequential_result = integralSeqential(static_cast<double(*)(double)>(&cos), 5, 0, 10000);
-        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 100);
+        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 1000);
     }
 }
 
@@ -36,7 +36,7 @@ TEST(Parallel_Operations_MPI, INTEGRAL_FROM_0_TO_100) {
     double parallel_result = integralParallel(static_cast<double(*)(double)>(&cos), 0, 100, 10000);
     if (rank == 0) {
         double sequential_result = integralSeqential(static_cast<double(*)(double)>(&cos), 0, 100, 10000);
-        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 100);
+        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 1000);
     }
 }
 
@@ -47,7 +47,7 @@ TEST(Parallel_Operations_MPI, INTEGRAL_FROM_0_TO_709) {
     double parallel_result = integralParallel(static_cast<double(*)(double)>(&cos), 0, 709, 10000);
     if (rank == 0) {
         double sequential_result = integralSeqential(static_cast<double(*)(double)>(&cos), 0, 709, 10000);
-        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 100);
+        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 10000);
     }
 }
 
@@ -58,7 +58,7 @@ TEST(Parallel_Operations_MPI, INTEGRAL_WITH_LOW_RANGE) {
     double parallel_result = integralParallel(static_cast<double(*)(double)>(&cos), 1, 1.01, 10000);
     if (rank == 0) {
         double sequential_result = integralSeqential(static_cast<double(*)(double)>(&cos), 1, 1.01, 10000);
-        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 100);
+        ASSERT_LT(std::fabs(parallel_result - sequential_result), std::numeric_limits<double>::epsilon() * 1000);
     }
 }
 
