@@ -11,7 +11,7 @@ const double EPSILON = std::numeric_limits<double>::epsilon() * 100;
 TEST(Gauss_horizontal_MPI, Test_2x2) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::vector<double> sys_eq(2 * 3);
+    std::vector<double> sys_eq(2 * 2);
     sys_eq = {
         1,   5,
         2,   10
