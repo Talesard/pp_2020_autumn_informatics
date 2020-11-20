@@ -8,28 +8,28 @@
 
 const double EPSILON = std::numeric_limits<double>::epsilon() * 100;
 
-TEST(Gauss_horizontal_MPI, Test_2x2) {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::vector<double> sys_eq(2 * 2);
-    sys_eq = {
-        1,   5,
-        2,   10
-    };
-    double t0, t1;
-    t0 = MPI_Wtime();
-    std::vector<double> res = SolveGaussParallel(sys_eq, 2, 2);
-    t1 = MPI_Wtime();
-    if (rank == 0) {
-        bool check = CheckSolution(sys_eq, 2, 2, res, EPSILON);
-        ASSERT_TRUE(check);
-        std::cout << "par_time: " << t1 - t0 << std::endl;
-        t0 = MPI_Wtime();
-        SolveGaussSeq(sys_eq, 2, 2);
-        t1 = MPI_Wtime();
-        std::cout << "seq_time: " << t1 - t0 << std::endl;
-    }
-}
+// TEST(Gauss_horizontal_MPI, Test_2x2) {
+//     int rank;
+//     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//     std::vector<double> sys_eq(2 * 2);
+//     sys_eq = {
+//         1,   5,
+//         2,   10
+//     };
+//     double t0, t1;
+//     t0 = MPI_Wtime();
+//     std::vector<double> res = SolveGaussParallel(sys_eq, 2, 2);
+//     t1 = MPI_Wtime();
+//     if (rank == 0) {
+//         bool check = CheckSolution(sys_eq, 2, 2, res, EPSILON);
+//         ASSERT_TRUE(check);
+//         std::cout << "par_time: " << t1 - t0 << std::endl;
+//         t0 = MPI_Wtime();
+//         SolveGaussSeq(sys_eq, 2, 2);
+//         t1 = MPI_Wtime();
+//         std::cout << "seq_time: " << t1 - t0 << std::endl;
+//     }
+// }
 
 TEST(Gauss_horizontal_MPI, Test_2x3) {
     int rank;
