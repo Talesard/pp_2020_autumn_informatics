@@ -230,6 +230,7 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
 
         // обратный ход - исключение
         // т.к. вычисление обратным ходом в любом случае последовательное, пусть этим занимается нулевой прцесс
+        MPI_Barrier(COMM_WORK);
         MPI_Gatherv(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(),
                     size_vec.data(), displ, MPI_DOUBLE, 0, COMM_WORK);
         std::cout << "p: " << rank << " after gatherv" << std::endl;
