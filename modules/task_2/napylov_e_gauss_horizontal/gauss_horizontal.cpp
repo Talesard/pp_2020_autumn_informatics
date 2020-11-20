@@ -244,9 +244,11 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 result[curr_r] /= sys[curr_r * cols + curr_r];
             }
         }
+        MPI_Comm_free(&COMM_WORK);
     }
 
     // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе
     // MPI_Bcast(result.data(), rows, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Group_free(&group_work);
     return result;
 }
