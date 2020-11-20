@@ -225,12 +225,14 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         std::cout << "rank: " << rank << ", size: " << local_vec_size << ", vec: "; print_vec(local_vec);
         #endif
 
+        std::cout << "p: " << rank << " before gatherv" << std::endl;
         // ТЕПЕРЬ ВСЕ СТРОКИ ВСЕХ ПРОЦЕССОВ СОСТАВЛЯЮТ ВЕРХНЕ-ТРЕУГОЛЬНУЮ МАТРИЦУ
 
         // обратный ход - исключение
         // т.к. вычисление обратным ходом в любом случае последовательное, пусть этим занимается нулевой прцесс
         MPI_Gatherv(local_vec.data(), local_vec_size, MPI_DOUBLE, sys.data(),
                     size_vec.data(), displ, MPI_DOUBLE, 0, COMM_WORK);
+        std::cout << "p: " << rank << " after gatherv" << std::endl;
         if (rank == 0) {
             #ifdef DEBUG_PAR
             print_matrix(sys, rows, cols);
@@ -246,9 +248,9 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
         }
         MPI_Comm_free(&COMM_WORK);
     }
-
     // можно не отправлять всем, но тогда правильный ответ вернется только в нулевом процессе
     // MPI_Bcast(result.data(), rows, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    std::cout << "p: " << world_rank << " before return" << std::endl;
     MPI_Group_free(&group_work);
     return result;
 }
