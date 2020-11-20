@@ -198,8 +198,14 @@ std::vector<double> SolveGaussParallel(std::vector<double> sys, int rows, int co
                 stroka = std::vector<double>(local_vec.data() + local_id * cols,
                                             local_vec.data() + local_id * cols + cols);
                 local_id++;
+                for (int pn = rank + 1; pn < work_proc_size; pn++) {
+                    MPI_Send(stroka.data(), cols, MPI_DOUBLE, pn, 0, MPI_COMM_WORLD);
+                }
             }
-            MPI_Bcast(stroka.data(), cols, MPI_DOUBLE, proc, COMM_WORK);
+            if (rank > map[r]) {
+                MPI_Status st;
+                MPI_Recv(stroka.data(), cols, MPI_DOUBLE, map[r], 0, MPI_COMM_WORLD, &st);
+            }
 
             // прямой ход - исключение
             if (rank == proc) {
