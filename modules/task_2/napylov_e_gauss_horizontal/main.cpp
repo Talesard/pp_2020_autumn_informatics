@@ -140,11 +140,11 @@ TEST(Gauss_horizontal_MPI, Test_10x11) {
     }
 }
 
-TEST(Gauss_horizontal_MPI, Test_performance_1000x1001) {
+TEST(Gauss_horizontal_MPI, Test_performance_200x201) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    int rows = 1000;
-    int cols = 1001;
+    int rows = 200;
+    int cols = 201;
     std::vector<double> sys_eq(rows * cols);
     sys_eq = SystemForPerformanceTest(rows, cols);
     double t0, t1;
