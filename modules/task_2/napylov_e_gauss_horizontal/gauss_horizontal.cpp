@@ -38,14 +38,32 @@ void print_matrix(std::vector<double> vec, int rows, int cols) {
     a7 a8 a9 | b3
 */
 
-std::vector<double> SystemForPerformanceTest(int rows, int cols) {
-    std::vector<double> res(rows * cols);
+
+// система, которая имеет едитсвенное решение - (1..1)
+std::vector<double> getSpecialMatrix(int rows, int cols) {
+    std::vector<double> matr(rows * cols);
+    double k = 2.0;
     for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            res[i * cols + j] = 5;
+        for (int j = 0; j < cols - 1; j++) {
+            if (i == j) continue;
+            matr[i * cols + j] = k;
+            k += 1.0;
         }
     }
-    return res;
+    // дальше по диагонали 1..rows
+    for (int i = 0; i < rows; i++) {
+        matr[i * cols + i] = static_cast<double>(i) + 1.0;
+    }
+    // столбец b - сумма строки
+    double sum = 0.0;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols - 1; j++) {
+            sum += matr[i * cols + j];
+        }
+        matr[i * cols + rows] = sum;
+        sum = 0;
+    }
+    return matr;
 }
 
 std::vector<double> SolveGaussSeq(std::vector<double> sys, int rows, int cols) {
@@ -95,6 +113,9 @@ bool CheckSolution(std::vector<double> sys, int rows, int cols, std::vector<doub
     for (int row = 0; row < rows; row++) {
         id_ans = 0;
         for (int col = 0; col < cols - 1; col++) {
+            if (answer[id_ans] != answer[id_ans]) {
+                    return false;
+                }
             tmp_sum += (sys[row * cols + col] * answer[id_ans]);
             id = row * cols + col;
             id_ans++;
